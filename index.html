@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asterion · Passkey</title>
+<h1>Asterion · Passkey</h1>
+<p>先注册 Passkey，再用它验证登录。</p>
+<button id="register">注册 Passkey</button>
+<button id="login">用 Passkey 登录</button>
+<p id="status" role="status"></p>
+<script>
+  const register = document.querySelector('#register');
+  const login = document.querySelector('#login');
+  const status = document.querySelector('#status');
+
+  async function post(path, payload) {
+    const response = await fetch(path, {
+      method: 'POST',
+      headers: payload ? {'Content-Type': 'application/json'} : {},
+      body: payload ? JSON.stringify(payload) : undefined
+    });
+    if (!response.ok) throw new Error((await response.text()).trim());
+    if (response.status !== 204) return response.json();
+  }
+
+  async function run(kind) {
+    register.disabled = login.disabled = true;
+    try {
+      if (!window.PublicKeyCredential?.parseCreationOptionsFromJSON || 
+          !window.PublicKeyCredential?.parseRequestOptionsFromJSON) {
+        throw new Error('请用支持 WebAuthn JSON API 的新版 Edge 或 Chrome 打开 localhost。');
+      }
+      const {publicKey} = await post('/' + kind + '/begin');
+      status.textContent = '请在浏览器弹窗中完成设备验证。';
+      const credential = kind === 'register'
+        ? await navigator.credentials.create({
+            publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(publicKey)
+          })
+        : await navigator.credentials.get({
+            publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(publicKey)
+          });
+      await post('/' + kind + '/finish', credential.toJSON());
+      status.textContent = kind === 'register' ? '注册成功，可以试试登录。' : '登录成功。';
+    } catch (error) {
+      status.textContent = error.name === 'NotAllowedError'
+        ? '设备验证已取消、超时或不可用。'
+        : error.message;
+    } finally {
+      register.disabled = login.disabled = false;
+    }
+  }
+
+  register.onclick = () => run('register');
+  login.onclick = () => run('login');
+</script>
+</html>
+

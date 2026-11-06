@@ -1,0 +1,11 @@
+# JetBrains project settings
+/.idea/
+
+# Go build and test artifacts
+/asterion
+*.exe
+*.test
+/coverage.out
+
+# Generated Go dependencies
+/vendor/
